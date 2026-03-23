@@ -1,0 +1,48 @@
+name: 📦 Post Tracker
+
+on:
+  schedule:
+    # 配合中華郵政資料更新時間（每小時 :05 更新，約 5~10 分鐘）
+    # 避開整點，於台灣時間 06:20 起每 2 小時執行（UTC-8）
+    - cron: "20 22,0,2,4,6,8,10,12,14,16 * * *"
+  workflow_dispatch: # 手動觸發
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore status from data branch
+        run: |
+          git fetch origin data || true
+          git checkout origin/data -- status.json 2>/dev/null || echo '{}' > status.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tracker
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          MAIL_NO: ${{ secrets.MAIL_NO }}
+        run: python tracker.py
+
+      - name: Save status to data branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp status.json /tmp/status.json
+          git checkout --orphan data 2>/dev/null || git checkout data
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/status.json status.json
+          git add status.json
+          git diff --staged --quiet || git commit -m "update tracking status"
+          git push -f origin data
