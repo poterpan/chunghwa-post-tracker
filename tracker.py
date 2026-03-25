@@ -9,8 +9,6 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from urllib.request import Request, urlopen
-from urllib.parse import quote
 
 import ddddocr
 import requests
@@ -37,10 +35,12 @@ TXNS = {
 
 def bark_notify(bark_key: str, title: str, body: str, group: str = "📦 包裹追蹤"):
     """透過 Bark 推播通知"""
-    url = f"https://api.day.app/{bark_key}/{quote(title)}/{quote(body)}?group={quote(group)}"
-    req = Request(url, method="GET")
     try:
-        urlopen(req, timeout=10)
+        requests.post(
+            f"https://api.day.app/{bark_key}",
+            json={"title": title, "body": body, "group": group},
+            timeout=10,
+        )
     except Exception as e:
         print(f"Bark 通知失敗: {e}")
 
