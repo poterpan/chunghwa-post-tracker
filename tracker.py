@@ -133,13 +133,44 @@ def fmt_dt(s: str) -> str:
     return s
 
 
+def fmt_date(s: str) -> str:
+    """將 '20260325' 格式化為 '2026-03-25'"""
+    if len(s) == 8 and s.isdigit():
+        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+    return s
+
+
+def extract_details(item: dict) -> str:
+    """從 ITEM 中提取詳細資訊（依 EVCODE 不同有不同欄位）"""
+    evcode = item.get("EVCODE", "")
+    details = []
+    for key, val in item.items():
+        if not key.endswith("-TITLE"):
+            continue
+        label = val.strip()
+        if not label:
+            continue
+        # 對應的值欄位：先找 KEY（去 -TITLE），再找 KEY-{EVCODE}
+        val_key = key.removesuffix("-TITLE")
+        value = item.get(val_key, "").strip()
+        if not value and evcode:
+            value = item.get(f"{val_key}-{evcode}", "").strip()
+        if value:
+            details.append(f"{label}: {fmt_date(value)}")
+    return " / ".join(details)
+
+
 def fmt_item(item: dict) -> str:
     dt = fmt_dt(item.get("DATIME", ""))
     status = item.get("STATUS", "").strip()
     station = item.get("BRHNAT", item.get("BRHNC", "")).strip()
     nation = item.get("NATION-A", "").strip()
     loc = f"{station} ({nation})" if nation else station
-    return f"{dt}  {status}  {loc}"
+    details = extract_details(item)
+    line = f"{dt}  {status}  {loc}"
+    if details:
+        line += f"\n    {details}"
+    return line
 
 
 def load_status() -> dict:
